@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum OfferMode {
+  MANUAL_ADMIN
+  RULE_BASED
+  AI_ASSISTED
+  EXTERNAL_API
+}
+
+enum OrderStatus {
+  DRAFT
+  OFFERED
+  ACCEPTED
+  AWAITING_LABEL
+  LABEL_READY
+  SHIPPED
+  DELIVERED
+  INSPECTION_PENDING
+  APPROVED
+  CONDITION_MISMATCH
+  FAKE_COUNTERFEIT
+  MISSING_ITEM
+  NEEDS_SELLER_CONTACT
+  PAYOUT_PROMPTED
+  PAID
+  REJECTED
+}
+
+enum PayoutMethod {
+  ZELLE
+  CRYPTO
+  PAYPAL
+  WIRE_ACH
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?
+  emailVerified DateTime?
+  image         String?
+  discordId     String?   @unique
+  isAdmin       Boolean   @default(false)
+  accounts      Account[]
+  sessions      Session[]
+  orders        Order[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model AppConfig {
+  id                    String    @id @default("singleton")
+  manualAdminPricing    Boolean   @default(true)
+  ruleBasedPricing      Boolean   @default(true)
+  aiAssistedPricing     Boolean   @default(false)
+  externalApiPricing    Boolean   @default(false)
+  termsOfService        String    @default("By accepting this offer, you confirm the Pokemon trading card is authentic, legally owned by you, matches the submitted photos and description, and may be inspected before payout. Shipping costs or manual label fees may be deducted from payout. Payout is prompted only after delivery and admin inspection approval.")
+  shippingInstructions  String    @default("Pack cards in sleeves, top loaders, and a rigid mailer or box. Include the order number inside the package. Use only the shipping label provided in your order channel or dashboard.")
+  labelFeeCents         Int       @default(0)
+  updatedAt             DateTime  @updatedAt
+}
+
+model Product {
+  id             String   @id @default(cuid())
+  sku            String   @unique
+  name           String
+  setName        String?
+  cardNumber     String?
+  grade          String?
+  baseOfferCents Int
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  orders         Order[]
+}
+
+model Order {
+  id                   String        @id @default(cuid())
+  sellerId             String
+  seller               User          @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  productId            String?
+  product              Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  customCardName       String?
+  setName              String?
+  cardNumber           String?
+  condition            String
+  quantity             Int           @default(1)
+  description          String
+  photoUrlsJson        String
+  selectedOfferMode    OfferMode     @default(RULE_BASED)
+  offerCents           Int
+  shippingDeductionCents Int         @default(0)
+  payoutCents          Int
+  payoutMethod         PayoutMethod?
+  payoutDetails        String?
+  status               OrderStatus   @default(OFFERED)
+  termsAcceptedAt      DateTime?
+  discordChannelId     String?
+  manualLabelUrl       String?
+  trackingNumber       String?
+  inspectionNotes      String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+}
