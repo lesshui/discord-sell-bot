@@ -7,38 +7,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum OfferMode {
-  MANUAL_ADMIN
-  RULE_BASED
-  AI_ASSISTED
-  EXTERNAL_API
-}
-
-enum OrderStatus {
-  DRAFT
-  OFFERED
-  ACCEPTED
-  AWAITING_LABEL
-  LABEL_READY
-  SHIPPED
-  DELIVERED
-  INSPECTION_PENDING
-  APPROVED
-  CONDITION_MISMATCH
-  FAKE_COUNTERFEIT
-  MISSING_ITEM
-  NEEDS_SELLER_CONTACT
-  PAYOUT_PROMPTED
-  PAID
-  REJECTED
-}
-
-enum PayoutMethod {
-  ZELLE
-  CRYPTO
-  PAYPAL
-  WIRE_ACH
-}
+// OfferMode values: MANUAL_ADMIN | RULE_BASED | AI_ASSISTED | EXTERNAL_API
+// OrderStatus values: DRAFT | OFFERED | ACCEPTED | AWAITING_LABEL | LABEL_READY | SHIPPED | DELIVERED | INSPECTION_PENDING | APPROVED | CONDITION_MISMATCH | FAKE_COUNTERFEIT | MISSING_ITEM | NEEDS_SELLER_CONTACT | PAYOUT_PROMPTED | PAID | REJECTED
+// PayoutMethod values: ZELLE | CRYPTO | PAYPAL | WIRE_ACH
 
 model Account {
   id                String  @id @default(cuid())
@@ -67,18 +38,31 @@ model Session {
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String          @id @default(cuid())
   name          String?
   email         String?
   emailVerified DateTime?
   image         String?
-  discordId     String?   @unique
-  isAdmin       Boolean   @default(false)
+  discordId     String?         @unique
+  isAdmin       Boolean         @default(false)
   accounts      Account[]
   sessions      Session[]
   orders        Order[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  ownedServers  DiscordServer[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model DiscordServer {
+  id        String   @id           // Discord guild ID
+  name      String
+  iconUrl   String?
+  ownerId   String                 // app User.id of the server owner
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  active    Boolean  @default(true)
+  orders    Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model VerificationToken {
@@ -90,15 +74,15 @@ model VerificationToken {
 }
 
 model AppConfig {
-  id                    String    @id @default("singleton")
-  manualAdminPricing    Boolean   @default(true)
-  ruleBasedPricing      Boolean   @default(true)
-  aiAssistedPricing     Boolean   @default(false)
-  externalApiPricing    Boolean   @default(false)
-  termsOfService        String    @default("By accepting this offer, you confirm the Pokemon trading card is authentic, legally owned by you, matches the submitted photos and description, and may be inspected before payout. Shipping costs or manual label fees may be deducted from payout. Payout is prompted only after delivery and admin inspection approval.")
-  shippingInstructions  String    @default("Pack cards in sleeves, top loaders, and a rigid mailer or box. Include the order number inside the package. Use only the shipping label provided in your order channel or dashboard.")
-  labelFeeCents         Int       @default(0)
-  updatedAt             DateTime  @updatedAt
+  id                    String   @id @default("singleton")
+  manualAdminPricing    Boolean  @default(true)
+  ruleBasedPricing      Boolean  @default(true)
+  aiAssistedPricing     Boolean  @default(false)
+  externalApiPricing    Boolean  @default(false)
+  termsOfService        String   @default("By accepting this offer, you confirm the Pokemon trading card is authentic, legally owned by you, matches the submitted photos and description, and may be inspected before payout. Shipping costs or manual label fees may be deducted from payout. Payout is prompted only after delivery and admin inspection approval.")
+  shippingInstructions  String   @default("Pack cards in sleeves, top loaders, and a rigid mailer or box. Include the order number inside the package. Use only the shipping label provided in your order channel or dashboard.")
+  labelFeeCents         Int      @default(0)
+  updatedAt             DateTime @updatedAt
 }
 
 model Product {
@@ -116,30 +100,32 @@ model Product {
 }
 
 model Order {
-  id                   String        @id @default(cuid())
-  sellerId             String
-  seller               User          @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  productId            String?
-  product              Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
-  customCardName       String?
-  setName              String?
-  cardNumber           String?
-  condition            String
-  quantity             Int           @default(1)
-  description          String
-  photoUrlsJson        String
-  selectedOfferMode    OfferMode     @default(RULE_BASED)
-  offerCents           Int
-  shippingDeductionCents Int         @default(0)
-  payoutCents          Int
-  payoutMethod         PayoutMethod?
-  payoutDetails        String?
-  status               OrderStatus   @default(OFFERED)
-  termsAcceptedAt      DateTime?
-  discordChannelId     String?
-  manualLabelUrl       String?
-  trackingNumber       String?
-  inspectionNotes      String?
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
+  id                     String         @id @default(cuid())
+  sellerId               String
+  seller                 User           @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  productId              String?
+  product                Product?       @relation(fields: [productId], references: [id], onDelete: SetNull)
+  customCardName         String?
+  setName                String?
+  cardNumber             String?
+  condition              String
+  quantity               Int            @default(1)
+  description            String
+  photoUrlsJson          String
+  selectedOfferMode      String         @default("RULE_BASED")
+  offerCents             Int
+  shippingDeductionCents Int            @default(0)
+  payoutCents            Int
+  payoutMethod           String?
+  payoutDetails          String?
+  status                 String         @default("OFFERED")
+  termsAcceptedAt        DateTime?
+  serverId               String?
+  server                 DiscordServer? @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  discordChannelId       String?
+  manualLabelUrl         String?
+  trackingNumber         String?
+  inspectionNotes        String?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
 }

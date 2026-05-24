@@ -83,7 +83,7 @@ export async function sendOrderUpdate(channelId: string | null | undefined, mess
   const client = await promise;
   const channel = await client.channels.fetch(channelId);
 
-  if (channel?.isTextBased()) {
-    await channel.send(message);
+  if (channel?.isTextBased() && "send" in channel) {
+    await (channel as TextChannel).send(message);
   }
 }

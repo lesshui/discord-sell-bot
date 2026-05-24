@@ -1,4 +1,5 @@
-import type { AppConfig, OfferMode, Product } from "@prisma/client";
+import type { AppConfig, Product } from "@prisma/client";
+import type { OfferMode } from "@/types";
 
 const conditionMultipliers: Record<string, number> = {
   "Near Mint": 1,

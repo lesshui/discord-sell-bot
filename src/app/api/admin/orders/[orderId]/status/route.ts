@@ -25,13 +25,14 @@ const schema = z.object({
   inspectionNotes: z.string().optional()
 });
 
-export async function POST(request: Request, { params }: { params: { orderId: string } }) {
+export async function POST(request: Request, { params }: { params: Promise<{ orderId: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+  const { orderId } = await params;
   const body = schema.parse(await request.json());
   const order = await prisma.order.update({
-    where: { id: params.orderId },
+    where: { id: orderId },
     data: {
       status: body.status,
       manualLabelUrl: body.manualLabelUrl || undefined,

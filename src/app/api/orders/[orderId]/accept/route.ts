@@ -11,18 +11,19 @@ const schema = z.object({
   acceptedTerms: z.literal(true)
 });
 
-export async function POST(request: Request, { params }: { params: { orderId: string } }) {
+export async function POST(request: Request, { params }: { params: Promise<{ orderId: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const { orderId } = await params;
   const body = schema.parse(await request.json());
-  const order = await prisma.order.findUniqueOrThrow({ where: { id: params.orderId } });
+  const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId } });
   if (order.sellerId !== session.user.id && !session.user.isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const updatedOrder = await prisma.order.update({
-    where: { id: params.orderId },
+    where: { id: orderId },
     data: {
       status: "AWAITING_LABEL",
       payoutMethod: body.payoutMethod,
