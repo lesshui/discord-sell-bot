@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./styles.css";
-import { Geist } from "next/font/google";
+import { Geist, JetBrains_Mono } from "next/font/google";
 import { cn } from "@/lib/utils";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
+const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono', weight: ['400', '500'] });
 
 export const metadata: Metadata = {
   title: "Pokemon Card Instant Offers",
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={cn("font-sans", geist.variable)}>
+    <html lang="en" className={cn("font-sans", geist.variable, jetbrainsMono.variable)}>
       <body>
         <main className="shell">{children}</main>
       </body>

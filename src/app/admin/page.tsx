@@ -1,8 +1,9 @@
-import { getServerSession } from "next-auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
 import { AdminConfigForm } from "@/components/AdminConfigForm";
 import { AdminOrderStatusForm } from "@/components/AdminOrderStatusForm";
+import { AdminProductCrud } from "@/components/AdminProductCrud";
 import { authOptions } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
@@ -15,26 +16,23 @@ export default async function AdminPage() {
   const [config, orders, products] = await Promise.all([
     prisma.appConfig.upsert({ where: { id: "singleton" }, update: {}, create: { id: "singleton" } }),
     prisma.order.findMany({ include: { seller: true, product: true }, orderBy: { createdAt: "desc" }, take: 25 }),
-    prisma.product.findMany({ orderBy: { name: "asc" } })
+    prisma.product.findMany({ orderBy: { name: "asc" } }),
   ]);
 
   return (
     <section>
-      <div className="row"><Link href="/" className="button secondary">Home</Link><span className="badge">Admin dashboard</span></div>
+      <div className="row">
+        <Link href="/" className="button secondary">Home</Link>
+        <span className="badge">Admin dashboard</span>
+      </div>
       <h1>Pokemon card admin dashboard</h1>
       <div className="grid">
         <AdminConfigForm config={config} />
-        <div className="card">
-          <h2>Catalog pricing</h2>
-          <table className="table"><tbody>{products.map((product) => (
-            <tr key={product.id}><td>{product.name}<br /><small>{product.setName} {product.cardNumber}</small></td><td>{formatMoney(product.baseOfferCents)}</td></tr>
-          ))}</tbody></table>
-          <p className="muted">MVP seed data is managed in Prisma; product CRUD can be added next.</p>
-        </div>
+        <AdminProductCrud initialProducts={products} />
       </div>
       <h2>Recent orders</h2>
       <div className="grid">
-        {orders.map((order) => (
+        {orders.map((order: (typeof orders)[number]) => (
           <div key={order.id}>
             <div className="card">
               <p className="badge">{order.status}</p>

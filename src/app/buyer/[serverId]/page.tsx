@@ -23,21 +23,22 @@ const statusColor: Record<string, string> = {
   FAKE_COUNTERFEIT: "bg-red-600/20 text-red-100",
 };
 
-export default async function BuyerDashboard({ params }: { params: { serverId: string } }) {
+export default async function BuyerDashboard({ params }: { params: Promise<{ serverId: string }> }) {
+  const { serverId } = await params;
   const session = await getServerSession(authOptions);
   if (!session) redirect("/api/auth/signin");
 
   const servers = await getAccessibleBotServers(session.user.id);
-  const server = servers.find((s) => s.id === params.serverId);
+  const server = servers.find((s) => s.id === serverId);
 
   if (!server) notFound();
 
   const isViewOnly = server.role === "admin";
 
   const [dbServer, orders] = await Promise.all([
-    prisma.discordServer.findUnique({ where: { id: params.serverId } }),
+    prisma.discordServer.findUnique({ where: { id: serverId } }),
     prisma.order.findMany({
-      where: { serverId: params.serverId },
+      where: { serverId },
       include: { seller: true, product: true },
       orderBy: { createdAt: "desc" },
     }),

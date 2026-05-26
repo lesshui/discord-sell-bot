@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { getAccessibleBotServers } from "@/lib/discord-guilds";
 
+export const dynamic = "force-dynamic";
+
 function ServerIcon({ name, iconUrl }: { name: string; iconUrl: string | null }) {
   if (iconUrl) {
     return <img src={iconUrl} alt={name} className="h-12 w-12 rounded-full object-cover" />;

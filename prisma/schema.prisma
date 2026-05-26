@@ -85,10 +85,12 @@ model AppConfig {
   updatedAt             DateTime @updatedAt
 }
 
+// Category values: Single Card | Graded Card | Sealed Booster Pack | Sealed Booster Box | Elite Trainer Box | Collection / Tin | Other
 model Product {
   id             String   @id @default(cuid())
   sku            String   @unique
   name           String
+  category       String   @default("Single Card")
   setName        String?
   cardNumber     String?
   grade          String?
