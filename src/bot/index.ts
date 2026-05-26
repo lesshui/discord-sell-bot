@@ -1,5 +1,7 @@
 import {
   ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   Client,
   ComponentType,
   GatewayIntentBits,
@@ -45,7 +47,7 @@ async function buildCatalogReply(): Promise<string> {
       const nmCents = Math.round(p.baseOfferCents * 1.0);
       const dollars = (nmCents / 100).toFixed(2);
       const label = p.setName ? `${p.name} *(${p.setName})*` : p.name;
-      lines.push(`• ${label} — NM **$${dollars}**`);
+      lines.push(`• ${label} — Sealed **$${dollars}**`);
     }
     lines.push("");
   }
@@ -106,12 +108,12 @@ const commands = [
   new SlashCommandBuilder()
     .setName("add")
     .setDescription("Add a new product to the buy list (requires Manage Server).")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
 
   new SlashCommandBuilder()
     .setName("update")
     .setDescription("Update or remove a catalog product (requires Manage Server).")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
     .addSubcommand((sub) =>
       sub
         .setName("price")
@@ -306,17 +308,93 @@ async function main() {
       }
 
       const config = await prisma.appConfig.upsert({ where: { id: "singleton" }, update: {}, create: { id: "singleton" } });
-      const offerCents = calculateOfferCents(config, { product, condition: "Near Mint", quantity: 1 });
+      const unitCents = calculateOfferCents(config, { product, condition: "Factory Sealed", quantity: 1 });
+
+      const agreeBtn = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`sell_agree_btn|${product.id}|${unitCents}`)
+          .setLabel("I Agree & Continue")
+          .setStyle(ButtonStyle.Success),
+      );
 
       await interaction.update({
         content: [
-          `🎴 **${product.name}**`,
-          `Near Mint offer: **$${(offerCents / 100).toFixed(2)}**`,
+          `🎴 **${product.name}** — offer **$${(unitCents / 100).toFixed(2)}** per item (Factory Sealed)`,
           ``,
-          `**[Complete your submission →](<${baseUrl}/sell?productId=${product.id}>)**`,
+          `**Before continuing, please read and agree to the following:**`,
+          `> • You have read and accept our Terms of Service.`,
+          `> • Shipping costs are your responsibility after your offer is approved.`,
+          `> • **Only ship your products once you have received approval.**`,
         ].join("\n"),
-        components: [],
+        components: [agreeBtn],
       });
+      return;
+    }
+
+    // ── sell_agree_btn ────────────────────────────────────────────────────────
+    if (interaction.isButton() && interaction.customId.startsWith("sell_agree_btn|")) {
+      const [, productId, unitCentsStr] = interaction.customId.split("|");
+      const unitCents = parseInt(unitCentsStr, 10);
+      const product = await prisma.product.findUnique({ where: { id: productId } });
+
+      await interaction.showModal(modal(
+        `sell_qty_modal|${productId}|${unitCentsStr}`,
+        "Submit Your Item",
+        [
+          { id: "product_name", label: "Product",                style: TextInputStyle.Short, value: product?.name ?? "", required: false },
+          { id: "unit_price",   label: "Offer per item (Sealed, $)", style: TextInputStyle.Short, value: (unitCents / 100).toFixed(2), required: false },
+          { id: "quantity",     label: "Number of items",        style: TextInputStyle.Short, placeholder: "e.g. 1" },
+          { id: "photo_url",    label: "Imgur photo URL",        style: TextInputStyle.Short, placeholder: "https://i.imgur.com/example.jpg" },
+        ],
+      ));
+      return;
+    }
+
+    // ── sell_qty_modal submit ─────────────────────────────────────────────────
+    if (interaction.isModalSubmit() && interaction.customId.startsWith("sell_qty_modal|")) {
+      const [, productId, unitCentsStr] = interaction.customId.split("|");
+
+      await interaction.deferReply({ ephemeral: true });
+
+      const unitCents  = parseInt(unitCentsStr, 10);
+      const quantity   = Math.max(1, parseInt(interaction.fields.getTextInputValue("quantity").trim(), 10) || 1);
+      const photoUrl   = interaction.fields.getTextInputValue("photo_url").trim();
+      const totalCents = unitCents * quantity;
+
+      const user = await prisma.user.findFirst({ where: { discordId: interaction.user.id } });
+      if (!user) {
+        await interaction.editReply(`Sign in first at ${baseUrl}, then run \`/sell\` again.`);
+        return;
+      }
+
+      const config = await prisma.appConfig.upsert({ where: { id: "singleton" }, update: {}, create: { id: "singleton" } });
+      const payoutCents = Math.max(0, totalCents - config.labelFeeCents * quantity);
+
+      const order = await prisma.order.create({
+        data: {
+          sellerId:               user.id,
+          productId,
+          condition:              "Factory Sealed",
+          quantity,
+          description:            `Submitted via Discord by ${interaction.user.username}`,
+          photoUrlsJson:          JSON.stringify(photoUrl ? [photoUrl] : []),
+          selectedOfferMode:      "RULE_BASED",
+          offerCents:             totalCents,
+          shippingDeductionCents: config.labelFeeCents * quantity,
+          payoutCents,
+          status:                 "OFFERED",
+          serverId:               interaction.guildId ?? undefined,
+        },
+      });
+
+      await interaction.editReply([
+        `✅ **Submission received!**`,
+        `Product: **${interaction.fields.getTextInputValue("product_name").trim()}** × ${quantity}`,
+        `Total offer: **$${(totalCents / 100).toFixed(2)}**`,
+        `Payout after shipping: **$${(payoutCents / 100).toFixed(2)}**`,
+        ``,
+        `Order ID: \`${order.id}\` — track it at ${baseUrl}/orders/${order.id}`,
+      ].join("\n"));
       return;
     }
 
