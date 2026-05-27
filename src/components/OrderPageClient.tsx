@@ -328,12 +328,54 @@ const css = `
 
 /* ── Terms ── */
 .ord-terms {
-  margin-top: 14px; display: flex; align-items: flex-start; gap: 10px;
+  margin-top: 14px; display: flex; align-items: center; gap: 10px;
   padding: 12px 14px; background: rgba(15,20,25,0.02); border: 1px solid rgba(15,20,25,0.06);
   border-radius: 10px; cursor: pointer;
 }
-.ord-terms input { margin-top: 1px; }
-.ord-terms span { font-size: 13px; color: #4a5260; }
+.ord-terms input {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: #fff;
+  border: 1.5px solid rgba(15, 20, 25, 0.25);
+  border-radius: 4px;
+  cursor: pointer;
+  display: grid;
+  place-content: center;
+  transition: background-color .15s, border-color .15s;
+}
+.ord-terms input:hover {
+  border-color: #5457d9;
+}
+.ord-terms input:checked {
+  background: #5457d9;
+  border-color: #5457d9;
+}
+.ord-terms input::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  transform: scale(0);
+  transition: transform .12s ease-out;
+  background-color: #fff;
+  clip-path: polygon(14% 44%, 0% 60%, 40% 100%, 100% 18%, 84% 4%, 38% 68%);
+}
+.ord-terms input:checked::before {
+  transform: scale(1);
+}
+.ord-terms input:focus-visible {
+  outline: 2px solid #5457d9;
+  outline-offset: 2px;
+}
+.ord-terms span {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  color: #4a5260;
+  line-height: 1.5;
+}
 
 /* ── CTA ── */
 .ord-cta-row { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
@@ -351,6 +393,7 @@ const css = `
 .ord-cta-secondary {
   padding: 14px 20px; background: white; border: 1.5px solid rgba(15,20,25,0.10);
   border-radius: 12px; color: #4a5260; font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer; transition: all .15s;
+  text-decoration: none; display: inline-flex; align-items: center; justify-content: center;
 }
 .ord-cta-secondary:hover { background: rgba(15,20,25,0.04); }
 
@@ -386,6 +429,73 @@ const css = `
 .ord-foot b { color: #0f1419; }
 .ord-foot a { color: #5457d9; text-decoration: none; }
 .ord-foot-id { opacity: 0.6; }
+
+/* ── Declined section ── */
+.ord-declined {
+  background: rgba(255,255,255,0.92);
+  border: 1px solid rgba(15,20,25,0.08);
+  border-radius: 16px;
+  padding: 28px;
+  backdrop-filter: blur(8px);
+  display: flex; flex-direction: column; gap: 20px;
+}
+.ord-decline-banner {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 18px 20px; border-radius: 12px;
+  background: rgba(214,158,46,0.06); border: 1px solid rgba(214,158,46,0.28);
+}
+.ord-decline-banner-icon {
+  flex-shrink: 0; line-height: 1;
+  display: inline-flex; padding-top: 1px;
+}
+.ord-decline-banner-body { flex: 1; min-width: 0; }
+.ord-decline-banner-title {
+  font-size: 14.5px; font-weight: 600; color: #0f1419; margin-bottom: 4px;
+  letter-spacing: -0.005em;
+}
+.ord-decline-banner-sub {
+  font-size: 13px; color: #4a5260; line-height: 1.55;
+}
+.ord-decline-banner-sub b { color: #0f1419; font-weight: 600; }
+.ord-declined-meta {
+  display: flex; flex-direction: column; gap: 2px;
+  border-top: 1px dashed rgba(15,20,25,0.10);
+  border-bottom: 1px dashed rgba(15,20,25,0.10);
+  padding: 14px 4px;
+}
+.ord-declined-meta-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 6px 0; font-size: 13px;
+}
+.ord-declined-meta-key {
+  font-family: var(--font-mono,'JetBrains Mono',monospace);
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.6px;
+  color: #8a93a1; width: 88px; flex-shrink: 0;
+}
+.ord-declined-meta-val {
+  color: #0f1419;
+  font-family: var(--font-mono,'JetBrains Mono',monospace);
+  font-size: 12.5px;
+}
+.ord-declined-pill {
+  display: inline-flex; align-items: center;
+  padding: 3px 9px;
+  background: rgba(214,158,46,0.12); border: 1px solid rgba(214,158,46,0.35);
+  color: #8a6510; border-radius: 999px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-family: var(--font-mono,'JetBrains Mono',monospace);
+}
+
+/* ── Drafted timeline pseudo-step ── */
+.ord-tl-step-drafted { cursor: default; }
+.ord-tl-dot-drafted {
+  background: rgba(214,158,46,0.10) !important;
+  border: 1.5px dashed rgba(168,119,24,0.55) !important;
+  color: transparent !important;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.ord-tl-step-drafted.is-current .ord-tl-label { color: #a87718; font-weight: 600; }
 
 /* ── Tablet: hero collapses ── */
 @media (max-width: 860px) {
@@ -440,6 +550,9 @@ export function OrderPageClient({ order, config }: { order: OrderWithProduct; co
   const [showShipping, setShowShipping] = useState(false);
   const [error, setError] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
+  const [declining, setDeclining] = useState(false);
+  const [declined, setDeclined] = useState(order.status === "DRAFT");
+  const [resubmitting, setResubmitting] = useState(false);
 
   const photos = JSON.parse(order.photoUrlsJson) as string[];
   const cardName = order.product?.name ?? order.customCardName ?? "Custom card";
@@ -463,15 +576,43 @@ export function OrderPageClient({ order, config }: { order: OrderWithProduct; co
     router.refresh();
   }
 
+  async function handleDecline() {
+    setDeclining(true);
+    const res = await fetch(`/api/orders/${order.id}/decline`, { method: "POST" });
+    setDeclining(false);
+    if (!res.ok) { setError("Could not decline the offer. Please try again."); return; }
+    setDeclined(true);
+  }
+
+  async function handleResubmit() {
+    setResubmitting(true);
+    const res = await fetch(`/api/orders/${order.id}/resubmit`, { method: "POST" });
+    setResubmitting(false);
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: "Could not resubmit." }));
+      setError(error === "Draft has expired" ? "This draft has expired and can no longer be resubmitted." : "Could not resubmit. Please try again.");
+      return;
+    }
+    setDeclined(false);
+  }
+
   // Dynamic pill colors (status-dependent — must stay inline)
-  const pillStyle =
-    ["PAID", "PAYOUT_PROMPTED"].includes(order.status)
-      ? { background: "rgba(34,192,122,0.12)", color: "#17834f", border: "1px solid rgba(34,192,122,0.30)" }
-      : order.status === "OFFERED"
-      ? { background: "rgba(84,87,217,0.08)", color: "#5457d9", border: "1px solid rgba(84,87,217,0.20)" }
-      : ["REJECTED", "CONDITION_MISMATCH", "FAKE_COUNTERFEIT"].includes(order.status)
-      ? { background: "rgba(196,62,48,0.08)", color: "#c43e30", border: "1px solid rgba(196,62,48,0.20)" }
-      : { background: "rgba(245,200,66,0.12)", color: "#a37300", border: "1px solid rgba(245,200,66,0.30)" };
+  const pillStyle = declined
+    ? { background: "rgba(245,200,66,0.14)", color: "#a87718", border: "1px solid rgba(214,158,46,0.40)" }
+    : ["PAID", "PAYOUT_PROMPTED"].includes(order.status)
+    ? { background: "rgba(34,192,122,0.12)", color: "#17834f", border: "1px solid rgba(34,192,122,0.30)" }
+    : order.status === "OFFERED"
+    ? { background: "rgba(84,87,217,0.08)", color: "#5457d9", border: "1px solid rgba(84,87,217,0.20)" }
+    : ["REJECTED", "CONDITION_MISMATCH", "FAKE_COUNTERFEIT"].includes(order.status)
+    ? { background: "rgba(196,62,48,0.08)", color: "#c43e30", border: "1px solid rgba(196,62,48,0.20)" }
+    : { background: "rgba(245,200,66,0.12)", color: "#a37300", border: "1px solid rgba(245,200,66,0.30)" };
+
+  function formatExpiresDate(declinedAt: Date | string | null) {
+    if (!declinedAt) return "—";
+    const d = new Date(declinedAt);
+    d.setDate(d.getDate() + 3);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }
 
   return (
     <>
@@ -506,7 +647,7 @@ export function OrderPageClient({ order, config }: { order: OrderWithProduct; co
             {/* Dynamic status pill — inline for color only, class for layout */}
             <div className="ord-status" style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "5px 12px", borderRadius: 999, fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", fontSize: 10.5, fontWeight: 600, letterSpacing: 0.6, flexShrink: 0, ...pillStyle }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor", boxShadow: "0 0 8px currentColor", display: "inline-block" }} />
-              {statusLabel(order.status)}
+              {declined ? "Draft ready" : statusLabel(order.status)}
             </div>
             <div className="ord-date">
               {new Date(order.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
@@ -520,17 +661,23 @@ export function OrderPageClient({ order, config }: { order: OrderWithProduct; co
             <div>
               <div className="ord-eyebrow">
                 <span className="ord-eyebrow-dot" />
-                {canAccept ? "OFFER READY · AWAITING ACCEPTANCE" : "ORDER IN PROGRESS"}
+                {declined
+                  ? "MOVED TO DRAFTS · 3 DAYS TO RESUBMIT"
+                  : canAccept ? "OFFER READY · AWAITING ACCEPTANCE" : "ORDER IN PROGRESS"}
               </div>
               <h1 className="ord-hero-title">
-                {canAccept
-                  ? <>Your <em>offer</em>.</>
-                  : <>In <em>motion</em>.</>}
+                {declined
+                  ? <>Your <em>loss</em>.</>
+                  : canAccept ? <>Your <em>offer</em>.</> : <>In <em>motion</em>.</>}
               </h1>
               <p className="ord-hero-sub">
-                {canAccept
-                  ? <>Accept and await your confirmation before shipping.<br />Buyer is expected to pay for shipping.</>
-                  : <><b>{order.discordChannelId ?? "Your Discord channel"}</b> has live updates.</>}
+                {declined ? (
+                  <>We hate to see you go — but your offer will remain in <b>drafts</b> for <b>3 days</b>.<br />Feel free to resubmit the offer anytime.</>
+                ) : canAccept ? (
+                  <>Accept and await your confirmation before shipping.<br />Buyer is expected to pay for shipping.</>
+                ) : (
+                  <><b>{order.discordChannelId ?? "Your Discord channel"}</b> has live updates.</>
+                )}
               </p>
             </div>
 
@@ -581,7 +728,7 @@ export function OrderPageClient({ order, config }: { order: OrderWithProduct; co
                   )}
                   <div className="ord-card-cond">
                     <span style={{ width: 7, height: 7, borderRadius: "50%", background: conditionColor(order.condition), display: "inline-block", flexShrink: 0 }} />
-                    {order.condition}
+                    {order.condition === "Factory Sealed" || order.condition === "Near Mint" ? "Sealed" : order.condition}
                     {order.quantity > 1 && <span className="ord-card-qty">· ×{order.quantity}</span>}
                   </div>
                 </div>
@@ -613,16 +760,25 @@ export function OrderPageClient({ order, config }: { order: OrderWithProduct; co
           <section className="ord-timeline">
             <div className="ord-timeline-head">
               <h2>Progress</h2>
-              <span className="ord-step-count">Step {stepIdx + 1} of {STEPS.length}</span>
+              <span className="ord-step-count">{declined ? "Drafted" : <>Step {stepIdx + 1} of {STEPS.length}</>}</span>
             </div>
             <div className="ord-tl-track">
               <div className="ord-tl-line">
-                <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${(stepIdx / (STEPS.length - 1)) * 100}%`, background: "linear-gradient(90deg,#22c07a,#5457d9)", borderRadius: 1, transition: "width 0.4s cubic-bezier(.2,.7,.2,1)" }} />
+                <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: declined ? "0%" : `${(stepIdx / (STEPS.length - 1)) * 100}%`, background: "linear-gradient(90deg,#22c07a,#5457d9)", borderRadius: 1, transition: "width 0.4s cubic-bezier(.2,.7,.2,1)" }} />
               </div>
-              <div className="ord-tl-steps">
+              <div className={`ord-tl-steps ${declined ? "is-declined" : ""}`} style={{ gridTemplateColumns: `repeat(${declined ? STEPS.length + 1 : STEPS.length}, 1fr)` }}>
+                {declined && (
+                  <div className="ord-tl-step ord-tl-step-drafted is-current">
+                    <span className="ord-tl-dot ord-tl-dot-drafted" aria-hidden="true">
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                        <path d="M1 5 L9 5" stroke="#a87718" strokeWidth="1.6" strokeLinecap="round" />
+                      </svg>
+                    </span>
+                    <span className="ord-tl-label">Drafted</span>
+                  </div>
+                )}
                 {STEPS.map((label, i) => {
                   const done = i < stepIdx, cur = i === stepIdx;
-                  // Step dot colors are dynamic — inline only
                   return (
                     <div key={label} className="ord-tl-step">
                       <div style={{ width: 22, height: 22, borderRadius: "50%", background: done ? "#22c07a" : cur ? "#5457d9" : "white", border: `2px solid ${done ? "#22c07a" : cur ? "#5457d9" : "rgba(15,20,25,0.18)"}`, color: (done || cur) ? "white" : "#8a93a1", fontFamily: "var(--font-mono,'JetBrains Mono',monospace)", fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2, boxShadow: cur ? "0 0 0 4px rgba(84,87,217,0.18)" : undefined }}>
@@ -639,7 +795,46 @@ export function OrderPageClient({ order, config }: { order: OrderWithProduct; co
           </section>
 
           {/* ── Accept offer OR What's next ── */}
-          {canAccept ? (
+          {declined ? (
+            <section className="ord-declined">
+              <div className="ord-decline-banner">
+                <span className="ord-decline-banner-icon" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 3 L22 20 H2 Z" fill="rgba(214,158,46,0.18)" stroke="#a87718" strokeWidth="1.6" strokeLinejoin="round" />
+                    <path d="M12 10 V14" stroke="#a87718" strokeWidth="1.8" strokeLinecap="round" />
+                    <circle cx="12" cy="17" r="1" fill="#a87718" />
+                  </svg>
+                </span>
+                <div className="ord-decline-banner-body">
+                  <div className="ord-decline-banner-title">You have declined the offer.</div>
+                  <div className="ord-decline-banner-sub">
+                    This order has been moved to <b>Drafts</b> on your dashboard. Drafts are automatically removed after <b>3 days</b>. If this was a mistake, you can resubmit below.
+                  </div>
+                </div>
+              </div>
+              <div className="ord-declined-meta">
+                <div className="ord-declined-meta-row">
+                  <span className="ord-declined-meta-key">ORDER</span>
+                  <span className="ord-declined-meta-val">{order.id}</span>
+                </div>
+                <div className="ord-declined-meta-row">
+                  <span className="ord-declined-meta-key">STATUS</span>
+                  <span className="ord-declined-meta-val"><span className="ord-declined-pill">Draft</span></span>
+                </div>
+                <div className="ord-declined-meta-row">
+                  <span className="ord-declined-meta-key">EXPIRES</span>
+                  <span className="ord-declined-meta-val">in 3 days · {formatExpiresDate(order.declinedAt)}</span>
+                </div>
+              </div>
+              <div className="ord-cta-row">
+                <button type="button" onClick={handleResubmit} disabled={resubmitting} className="ord-cta-primary is-active">
+                  <span>{resubmitting ? "Resubmitting…" : "Resubmit offer"}</span>
+                  {!resubmitting && <span aria-hidden="true">→</span>}
+                </button>
+                <Link href="/sell" className="ord-cta-secondary">Back to /sell</Link>
+              </div>
+            </section>
+          ) : canAccept ? (
             <section className="ord-accept">
               <div className="ord-accept-head">
                 <h2>Accept offer</h2>
@@ -684,7 +879,11 @@ export function OrderPageClient({ order, config }: { order: OrderWithProduct; co
               </div>
 
               <label className="ord-terms">
-                <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                />
                 <span>I agree to inspection-gated payout and shipping terms above.</span>
               </label>
 
@@ -697,7 +896,9 @@ export function OrderPageClient({ order, config }: { order: OrderWithProduct; co
                   <span>{submitting ? "Accepting…" : `Accept ${fmtUSD(order.payoutCents)} offer`}</span>
                   {!submitting && <span aria-hidden="true">→</span>}
                 </button>
-                <button type="button" className="ord-cta-secondary">Decline</button>
+                <button type="button" onClick={handleDecline} disabled={declining} className="ord-cta-secondary">
+                  {declining ? "Declining…" : "Decline"}
+                </button>
               </div>
             </section>
           ) : (

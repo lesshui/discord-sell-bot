@@ -122,6 +122,7 @@ model Order {
   payoutDetails          String?
   status                 String         @default("OFFERED")
   termsAcceptedAt        DateTime?
+  declinedAt             DateTime?
   serverId               String?
   server                 DiscordServer? @relation(fields: [serverId], references: [id], onDelete: SetNull)
   discordChannelId       String?
