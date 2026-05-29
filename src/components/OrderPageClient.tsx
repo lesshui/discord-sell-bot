@@ -541,7 +541,23 @@ const css = `
 }
 `;
 
-export function OrderPageClient({ order, config }: { order: OrderWithProduct; config: AppConfig }) {
+export type MarketPriceProp = {
+  priceCents: number;
+  source: string;
+  scrapedAt: string;
+} | null;
+
+const MARKET_PRICE_FRESH_MS = 24 * 60 * 60 * 1000;
+
+export function OrderPageClient({
+  order,
+  config,
+  marketPrice = null,
+}: {
+  order: OrderWithProduct;
+  config: AppConfig;
+  marketPrice?: MarketPriceProp;
+}) {
   const router = useRouter();
   const [payoutMethod, setPayoutMethod] = useState<PayoutMethod>("ZELLE");
   const [payoutDetails, setPayoutDetails] = useState("");
@@ -703,6 +719,23 @@ export function OrderPageClient({ order, config }: { order: OrderWithProduct; co
                   <span className="ord-amount-value neg">−{fmtUSD(order.shippingDeductionCents)}</span>
                 </div>
               )}
+              {marketPrice && (() => {
+                const ageMs = Date.now() - new Date(marketPrice.scrapedAt).getTime();
+                const isFresh = ageMs < MARKET_PRICE_FRESH_MS;
+                return (
+                  <div className="ord-amount-row" style={{ opacity: 0.85 }}>
+                    <span className="ord-amount-label">
+                      Market reference
+                      {!isFresh && (
+                        <span style={{ display: "block", fontSize: 10, opacity: 0.7 }}>
+                          subject to change
+                        </span>
+                      )}
+                    </span>
+                    <span className="ord-amount-value">{fmtUSD(marketPrice.priceCents)}</span>
+                  </div>
+                );
+              })()}
               <div className="ord-amount-divider" />
               <div className="ord-amount-row total">
                 <span className="ord-amount-label">Payout</span>

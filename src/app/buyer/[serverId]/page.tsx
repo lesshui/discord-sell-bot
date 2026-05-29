@@ -35,16 +35,24 @@ export default async function BuyerDashboard({ params }: { params: Promise<{ ser
 
   const isViewOnly = server.role === "admin";
 
-  const [dbServer, orders] = await Promise.all([
+  const [dbServer, orders, config] = await Promise.all([
     prisma.discordServer.findUnique({ where: { id: serverId } }),
     prisma.order.findMany({
       where: { serverId },
       include: { seller: true, product: true },
       orderBy: { createdAt: "desc" },
     }),
+    prisma.appConfig.upsert({ where: { id: "singleton" }, update: {}, create: { id: "singleton" } }),
   ]);
 
   if (!dbServer) notFound();
+
+  const productIds = Array.from(new Set(orders.map((o) => o.productId).filter((id): id is string => Boolean(id))));
+  const marketByProductId = new Map(
+    config.externalApiPricing && productIds.length > 0
+      ? (await prisma.productMarketPrice.findMany({ where: { productId: { in: productIds } } })).map((m) => [m.productId, m])
+      : [],
+  );
 
   const stats = {
     total: orders.length,
@@ -129,6 +137,14 @@ export default async function BuyerDashboard({ params }: { params: Promise<{ ser
                       <span>Offer: <span className="text-zinc-200 font-medium">{formatMoney(order.offerCents)}</span></span>
                       <span>Payout: <span className="text-zinc-200 font-medium">{formatMoney(order.payoutCents)}</span></span>
                       <span>Condition: <span className="text-zinc-200">{order.condition}</span></span>
+                      {(() => {
+                        const m = order.productId ? marketByProductId.get(order.productId) : undefined;
+                        return m ? (
+                          <span title={`Market ref · ${m.source} · ${new Date(m.scrapedAt).toLocaleString()}`}>
+                            Market: <span className="text-zinc-200 font-medium">{formatMoney(m.priceCents)}</span>
+                          </span>
+                        ) : null;
+                      })()}
                     </div>
                     {order.discordChannelId && (
                       <p className="mt-1 text-xs text-zinc-500">Channel: {order.discordChannelId}</p>

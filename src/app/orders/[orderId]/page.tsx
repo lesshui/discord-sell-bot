@@ -17,5 +17,24 @@ export default async function OrderPage({ params }: { params: Promise<{ orderId:
   if (!order) notFound();
   if (order.sellerId !== session.user.id && !session.user.isAdmin) redirect("/");
 
-  return <OrderPageClient order={order} config={config} />;
+  const marketPrice =
+    config.externalApiPricing && order.productId
+      ? await prisma.productMarketPrice.findUnique({ where: { productId: order.productId } })
+      : null;
+
+  return (
+    <OrderPageClient
+      order={order}
+      config={config}
+      marketPrice={
+        marketPrice
+          ? {
+              priceCents: marketPrice.priceCents,
+              source: marketPrice.source,
+              scrapedAt: marketPrice.scrapedAt.toISOString(),
+            }
+          : null
+      }
+    />
+  );
 }

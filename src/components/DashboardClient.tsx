@@ -366,6 +366,8 @@ interface Order {
   status: string;
   createdAt: string;
   declinedAt: string | null;
+  marketPriceCents: number | null;
+  marketPriceScrapedAt: string | null;
 }
 
 interface Props {
@@ -374,6 +376,7 @@ interface Props {
   avatarUrl: string | null;
   orders: Order[];
   orderCount: number;
+  marketPricingEnabled: boolean;
 }
 
 const STATUS_META: Record<string, { label: string; tone: string }> = {
@@ -465,11 +468,12 @@ function MiniCornLogo({ size = 32 }: { size?: number }) {
   );
 }
 
-function OrderCard({ order }: { order: Order }) {
+function OrderCard({ order, marketPricingEnabled }: { order: Order; marketPricingEnabled: boolean }) {
   const meta = STATUS_META[order.status] ?? { label: order.status.replace(/_/g, " "), tone: "neutral" };
   const isDraft = order.status === "DRAFT";
   const days = isDraft ? daysLeft(order.declinedAt) : null;
   const hue = order.hue;
+  const showMarket = marketPricingEnabled && order.marketPriceCents != null;
 
   return (
     <Link href={`/orders/${order.id}`} className={`dsh-card ${isDraft ? "is-draft" : ""}`}>
@@ -497,6 +501,14 @@ function OrderCard({ order }: { order: Order }) {
         </div>
         <div className="dsh-card-row3">
           <span className="dsh-card-amount">{fmtUSD(order.offerCents)}</span>
+          {showMarket ? (
+            <>
+              <span className="dsh-card-meta-dot">·</span>
+              <span className="dsh-card-date" title="Market reference price">
+                mkt {fmtUSD(order.marketPriceCents!)}
+              </span>
+            </>
+          ) : null}
           <span className="dsh-card-meta-dot">·</span>
           <span className="dsh-card-date">{order.createdAt}</span>
           {isDraft && days !== null ? (
@@ -510,7 +522,7 @@ function OrderCard({ order }: { order: Order }) {
   );
 }
 
-export default function DashboardClient({ username, joinedAt, avatarUrl, orders, orderCount }: Props) {
+export default function DashboardClient({ username, joinedAt, avatarUrl, orders, orderCount, marketPricingEnabled }: Props) {
   const [tab, setTab] = useState("all");
 
   const counts = useMemo(() => ({
@@ -631,7 +643,7 @@ export default function DashboardClient({ username, joinedAt, avatarUrl, orders,
           ) : (
             <div className="dsh-grid">
               {filtered.map((order) => (
-                <OrderCard key={order.id} order={order} />
+                <OrderCard key={order.id} order={order} marketPricingEnabled={marketPricingEnabled} />
               ))}
             </div>
           )}

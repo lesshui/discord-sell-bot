@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { AdminConfigForm } from "@/components/AdminConfigForm";
 import { AdminOrderStatusForm } from "@/components/AdminOrderStatusForm";
 import { AdminProductCrud } from "@/components/AdminProductCrud";
+import { ScraperControls } from "@/components/ScraperControls";
 import { authOptions } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
@@ -13,11 +14,18 @@ export default async function AdminPage() {
   if (!session) redirect("/api/auth/signin");
   if (!session.user.isAdmin) redirect("/");
 
-  const [config, orders, products] = await Promise.all([
+  const [config, orders, products, marketPrices] = await Promise.all([
     prisma.appConfig.upsert({ where: { id: "singleton" }, update: {}, create: { id: "singleton" } }),
     prisma.order.findMany({ include: { seller: true, product: true }, orderBy: { createdAt: "desc" }, take: 25 }),
     prisma.product.findMany({ orderBy: { name: "asc" } }),
+    prisma.productMarketPrice.findMany(),
   ]);
+
+  const marketByProductId = new Map(marketPrices.map((m) => [m.productId, m]));
+  const scraperRows = products.map((p) => ({
+    product: { id: p.id, name: p.name, sku: p.sku, baseOfferCents: p.baseOfferCents },
+    market: marketByProductId.get(p.id) ?? null,
+  }));
 
   return (
     <section>
@@ -30,6 +38,7 @@ export default async function AdminPage() {
         <AdminConfigForm config={config} />
         <AdminProductCrud initialProducts={products} />
       </div>
+      <ScraperControls rows={scraperRows} />
       <h2>Recent orders</h2>
       <div className="grid">
         {orders.map((order: (typeof orders)[number]) => (
