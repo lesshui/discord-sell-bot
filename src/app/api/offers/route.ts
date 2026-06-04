@@ -63,6 +63,8 @@ export async function POST(request: Request) {
       shippingDeductionCents: config.labelFeeCents,
       payoutCents,
       status,
+      // Route to the seller's chosen destination server so its owner/admin sees it.
+      serverId: seller.defaultSellServerId,
     },
   });
 

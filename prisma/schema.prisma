@@ -45,6 +45,9 @@ model User {
   image         String?
   discordId     String?         @unique
   isAdmin       Boolean         @default(false)
+  // Seller's chosen destination server: new submissions route here so that
+  // server's owner/admin sees them on their buyer dashboard.
+  defaultSellServerId String?
   accounts      Account[]
   sessions      Session[]
   orders        Order[]

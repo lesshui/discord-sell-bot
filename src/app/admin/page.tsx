@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { AdminConfigForm } from "@/components/AdminConfigForm";
+import { AdminManualOfferForm } from "@/components/AdminManualOfferForm";
 import { AdminOrderStatusForm } from "@/components/AdminOrderStatusForm";
 import { AdminProductCrud } from "@/components/AdminProductCrud";
 import { ScraperControls } from "@/components/ScraperControls";
@@ -51,7 +52,9 @@ export default async function AdminPage() {
               <p>Private Discord channel: {order.discordChannelId ?? "not configured"}</p>
               <Link href={`/orders/${order.id}`}>View seller order page</Link>
             </div>
-            <AdminOrderStatusForm order={order} />
+            {order.status === "DRAFT"
+              ? <AdminManualOfferForm order={order} />
+              : <AdminOrderStatusForm order={order} variant="dark" />}
           </div>
         ))}
       </div>

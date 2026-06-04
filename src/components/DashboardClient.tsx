@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { ServerSwitcher } from "@/components/ServerSwitcher";
 
 const css = `
   .dsh-root {
@@ -67,11 +69,14 @@ const css = `
     margin-top: 2px;
   }
 
-  /* New offer button — pinned top-right */
+  /* Fixed top-right action cluster (dashboard switch + new offer) */
+  .dsh-top-actions {
+    position: fixed; top: 18px; right: 20px; z-index: 50;
+    display: inline-flex; align-items: center; gap: 10px;
+  }
+
+  /* New offer button */
   .dsh-new-offer {
-    position: fixed;
-    top: 18px; right: 20px;
-    z-index: 50;
     display: inline-flex; align-items: center; gap: 10px;
     padding: 10px 18px;
     background: #0f1419; color: white;
@@ -96,12 +101,31 @@ const css = `
   .dsh-main {
     position: relative; z-index: 4;
     max-width: 1280px; margin: 0 auto;
-    padding: 0px 24px 80px;
+    padding: 72px 24px 80px;
     display: flex; flex-direction: column; gap: 32px;
   }
 
+  /* Context bar (server switcher) */
+  .dsh-ctx { display: flex; align-items: center; gap: 14px; padding: 4px 0 22px; flex-wrap: wrap; }
+  .dsh-ctx-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; letter-spacing: 1.4px; font-weight: 600;
+    color: #8a93a1; text-transform: uppercase;
+  }
+  /* Dashboard switch pill (sits in the fixed top action cluster) */
+  .dsh-ctx-switch {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 16px; border-radius: 999px;
+    border: 1px solid rgba(15,20,25,0.12);
+    background: rgba(255,255,255,0.9);
+    font-size: 13px; font-weight: 500; color: #0f1419;
+    text-decoration: none; white-space: nowrap; line-height: 1;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+  }
+  .dsh-ctx-switch:hover { border-color: rgba(84,87,217,0.4); box-shadow: 0 2px 10px rgba(15,20,25,0.06); }
+
   /* Hero */
-  .dsh-hero { padding: 28px 0 0; }
+  .dsh-hero { padding: 0; }
   .dsh-eyebrow {
     display: inline-flex; align-items: center; gap: 9px;
     padding: 5px 12px;
@@ -328,6 +352,42 @@ const css = `
   .dsh-pill-draft  { background: rgba(214,158,46,0.14); color: #a87718; border: 1px solid rgba(214,158,46,0.35); }
   .dsh-pill-neutral { background: rgba(15,20,25,0.06); color: #6b7280; }
 
+  /* Admin: seller attribution + inline pricing */
+  .dsh-card-seller {
+    color: #5457d9; font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .dsh-admin-price { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+  .dsh-admin-input {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 5px 10px;
+    background: white;
+    border: 1px solid rgba(15,20,25,0.16);
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .dsh-admin-input:focus-within { border-color: #5457d9; box-shadow: 0 0 0 3px rgba(84,87,217,0.12); }
+  .dsh-admin-input span { font-size: 13px; color: #8a93a1; }
+  .dsh-admin-input input {
+    width: 72px; border: 0; outline: 0; background: transparent;
+    font-family: inherit; font-size: 13px; font-weight: 600; color: #0f1419;
+  }
+  .dsh-admin-send {
+    padding: 6px 14px;
+    background: #0f1419; color: white;
+    border: 0; border-radius: 8px;
+    font-family: inherit; font-size: 12.5px; font-weight: 600;
+    cursor: pointer; transition: background .15s;
+  }
+  .dsh-admin-send:hover:not(:disabled) { background: #1f2733; }
+  .dsh-admin-send:disabled { opacity: 0.55; cursor: default; }
+  .dsh-admin-view {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; color: #8a93a1; text-decoration: none;
+  }
+  .dsh-admin-view:hover { color: #0f1419; }
+  .dsh-admin-error { margin-top: 6px; font-size: 11.5px; color: #c0392b; }
+
   /* Footer */
   .dsh-foot {
     display: flex; justify-content: space-between; align-items: center;
@@ -368,6 +428,9 @@ interface Order {
   declinedAt: string | null;
   marketPriceCents: number | null;
   marketPriceScrapedAt: string | null;
+  sellerName: string;
+  serverId: string | null;
+  serverName: string | null;
 }
 
 interface Props {
@@ -377,10 +440,13 @@ interface Props {
   orders: Order[];
   orderCount: number;
   marketPricingEnabled: boolean;
+  isAdmin: boolean;
+  sellableServers: { id: string; name: string; iconUrl?: string | null }[];
+  defaultSellServerId: string | null;
 }
 
 const STATUS_META: Record<string, { label: string; tone: string }> = {
-  OFFERED:             { label: "Offer ready",  tone: "purple" },
+  OFFERED:             { label: "Offer received", tone: "purple" },
   ACCEPTED:            { label: "Accepted",     tone: "amber" },
   LABEL_SENT:          { label: "Label sent",   tone: "amber" },
   IN_TRANSIT:          { label: "In transit",   tone: "amber" },
@@ -468,7 +534,88 @@ function MiniCornLogo({ size = 32 }: { size?: number }) {
   );
 }
 
-function OrderCard({ order, marketPricingEnabled }: { order: Order; marketPricingEnabled: boolean }) {
+// Admin-only card for unpriced submissions: set the offer inline, which moves
+// the order DRAFT -> OFFERED and notifies the seller. Not a navigation link so
+// the input/button stay clickable; a small "View" link covers the detail page.
+function AdminPriceCard({ order }: { order: Order }) {
+  const router = useRouter();
+  const [value, setValue] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string>();
+  const hue = order.hue;
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    const dollars = parseFloat(value);
+    if (!(dollars > 0)) {
+      setError("Enter a price above $0.");
+      return;
+    }
+    setSubmitting(true);
+    setError(undefined);
+    const res = await fetch(`/api/admin/orders/${order.id}/offer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ offerDollars: dollars }),
+    });
+    setSubmitting(false);
+    if (res.ok) {
+      router.refresh();
+    } else {
+      setError("Couldn't send offer. Try again.");
+    }
+  }
+
+  return (
+    <div className="dsh-card is-draft">
+      <div
+        className="dsh-card-art"
+        style={{ background: `linear-gradient(135deg, hsl(${hue}, 70%, 55%) 0%, hsl(${hue}, 60%, 35%) 100%)` }}
+      >
+        <div className="dsh-card-band" style={{ background: `hsl(${hue}, 90%, 30%)` }} />
+        <div
+          className="dsh-card-portrait"
+          style={{ background: `linear-gradient(135deg, hsla(${hue}, 50%, 75%, 0.95), hsla(${hue}, 50%, 50%, 0.95))` }}
+        />
+      </div>
+      <div className="dsh-card-body">
+        <div className="dsh-card-row1">
+          <span className="dsh-card-name">{order.cardName}</span>
+          <span className="dsh-pill dsh-pill-draft">
+            <span className="dsh-pill-dot" />
+            Needs price
+          </span>
+        </div>
+        <div className="dsh-card-row2">
+          <span className="dsh-card-seller">@{order.sellerName}</span>
+          <span className="dsh-card-meta-dot">·</span>
+          <span className="dsh-card-set">{order.cardSet}</span>
+          {order.quantity > 1 ? <span className="dsh-card-qty">×{order.quantity}</span> : null}
+        </div>
+        <form className="dsh-admin-price" onSubmit={submit}>
+          <label className="dsh-admin-input">
+            <span>$</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder="0.00"
+              aria-label="Offer total in dollars"
+            />
+          </label>
+          <button type="submit" className="dsh-admin-send" disabled={submitting}>
+            {submitting ? "Sending…" : "Send offer"}
+          </button>
+          <Link href={`/orders/${order.id}`} className="dsh-admin-view">View</Link>
+        </form>
+        {error ? <div className="dsh-admin-error">{error}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+function OrderCard({ order, marketPricingEnabled, isAdmin }: { order: Order; marketPricingEnabled: boolean; isAdmin: boolean }) {
   const meta = STATUS_META[order.status] ?? { label: order.status.replace(/_/g, " "), tone: "neutral" };
   const isDraft = order.status === "DRAFT";
   const days = isDraft ? daysLeft(order.declinedAt) : null;
@@ -496,6 +643,12 @@ function OrderCard({ order, marketPricingEnabled }: { order: Order; marketPricin
           </span>
         </div>
         <div className="dsh-card-row2">
+          {isAdmin ? (
+            <>
+              <span className="dsh-card-seller">@{order.sellerName}</span>
+              <span className="dsh-card-meta-dot">·</span>
+            </>
+          ) : null}
           <span className="dsh-card-set">{order.cardSet}</span>
           {order.quantity > 1 ? <span className="dsh-card-qty">×{order.quantity}</span> : null}
         </div>
@@ -522,8 +675,23 @@ function OrderCard({ order, marketPricingEnabled }: { order: Order; marketPricin
   );
 }
 
-export default function DashboardClient({ username, joinedAt, avatarUrl, orders, orderCount, marketPricingEnabled }: Props) {
+export default function DashboardClient({ username, joinedAt, avatarUrl, orders, orderCount, marketPricingEnabled, isAdmin, sellableServers, defaultSellServerId }: Props) {
+  const router = useRouter();
   const [tab, setTab] = useState("all");
+  const [savingServer, setSavingServer] = useState(false);
+
+  // Persist the seller's destination server; new submissions route there and any
+  // unrouted pending ones are moved to it server-side.
+  async function selectSellServer(serverId: string) {
+    setSavingServer(true);
+    const res = await fetch("/api/me/sell-server", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ serverId }),
+    });
+    setSavingServer(false);
+    if (res.ok) router.refresh();
+  }
 
   const counts = useMemo(() => ({
     all: orders.length,
@@ -563,12 +731,32 @@ export default function DashboardClient({ username, joinedAt, avatarUrl, orders,
         </span>
       </Link>
 
-      <Link href="/sell" className="dsh-new-offer">
-        <span aria-hidden="true" className="dsh-new-offer-plus">+</span>
-        <span>New offer</span>
-      </Link>
+      <div className="dsh-top-actions">
+        <Link href="/buyer" className="dsh-ctx-switch">
+          Buyer Dashboard
+          <span aria-hidden="true">→</span>
+        </Link>
+        <Link href="/sell" className="dsh-new-offer">
+          <span aria-hidden="true" className="dsh-new-offer-plus">+</span>
+          <span>New offer</span>
+        </Link>
+      </div>
 
       <main className="dsh-main">
+        {/* Context bar: server switcher (seller's destination server) */}
+        <div className="dsh-ctx">
+          <span className="dsh-ctx-label">Selling into</span>
+          <ServerSwitcher
+            eyebrow="Selling into"
+            menuHeading="Your servers"
+            servers={sellableServers}
+            selectedId={defaultSellServerId}
+            onSelect={selectSellServer}
+            busy={savingServer}
+            addBotUrl="https://discord.com/oauth2/authorize"
+          />
+        </div>
+
         {/* Hero */}
         <section className="dsh-hero">
           <div className="dsh-eyebrow">
@@ -610,7 +798,7 @@ export default function DashboardClient({ username, joinedAt, avatarUrl, orders,
         {/* Orders */}
         <section className="dsh-orders">
           <div className="dsh-orders-head">
-            <h2>Your orders</h2>
+            <h2>{isAdmin ? "All seller orders" : "Your orders"}</h2>
             <div className="dsh-tabs" role="tablist">
               {TABS.map((t) => (
                 <button
@@ -642,9 +830,13 @@ export default function DashboardClient({ username, joinedAt, avatarUrl, orders,
             </div>
           ) : (
             <div className="dsh-grid">
-              {filtered.map((order) => (
-                <OrderCard key={order.id} order={order} marketPricingEnabled={marketPricingEnabled} />
-              ))}
+              {filtered.map((order) =>
+                isAdmin && order.status === "DRAFT" ? (
+                  <AdminPriceCard key={order.id} order={order} />
+                ) : (
+                  <OrderCard key={order.id} order={order} marketPricingEnabled={marketPricingEnabled} isAdmin={isAdmin} />
+                ),
+              )}
             </div>
           )}
         </section>

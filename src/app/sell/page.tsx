@@ -1,10 +1,19 @@
 import { getServerSession } from "next-auth";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
+import { getSellableServers } from "@/lib/discord-guilds";
 import { prisma } from "@/lib/prisma";
-import { SellForm } from "@/components/SellForm";
+import { NewOfferClient } from "@/components/NewOfferClient";
 
+/**
+ * /sell — hybrid catalog + custom-submission page.
+ *
+ *   /sell                       → custom-submission UI (manual review)
+ *   /sell?productId=<productId> → catalog autofill (instant offer)
+ *
+ * Both flows live in the same component; the productId query param drives
+ * which one is shown.
+ */
 export default async function SellPage({
   searchParams,
 }: {
@@ -15,23 +24,40 @@ export default async function SellPage({
 
   const { productId: defaultProductId } = await searchParams;
 
-  const [products, config] = await Promise.all([
+  const [products, config, user, sellableServers] = await Promise.all([
     prisma.product.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.appConfig.upsert({ where: { id: "singleton" }, update: {}, create: { id: "singleton" } }),
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { name: true, image: true, createdAt: true, defaultSellServerId: true },
+    }),
+    getSellableServers(session.user.id),
   ]);
 
+  const items = products.map((p) => ({
+    id: p.id,
+    name: p.name,
+    category: p.category,
+    setName: p.setName ?? "",
+    cardNumber: p.cardNumber ?? "",
+    grade: p.grade ?? "",
+    baseOfferCents: p.baseOfferCents,
+  }));
+
+  const joinedAt = user?.createdAt
+    ? "joined " + new Date(user.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+    : "";
+
   return (
-    <div className="min-h-screen bg-[#10131a]">
-      <div className="mx-auto max-w-2xl px-4 py-12">
-        <div className="mb-6 flex items-center gap-3">
-          <Link href="/prices" className="text-sm text-zinc-400 hover:text-white transition-colors">
-            ← Buy list
-          </Link>
-          <span className="text-zinc-700">/</span>
-          <span className="text-sm text-zinc-300">Submit product</span>
-        </div>
-        <SellForm products={products} config={config} defaultProductId={defaultProductId} />
-      </div>
-    </div>
+    <NewOfferClient
+      products={items}
+      labelFeeCents={config.labelFeeCents}
+      defaultProductId={defaultProductId ?? ""}
+      username={session.user.name ?? user?.name ?? "seller"}
+      joinedAt={joinedAt}
+      avatarUrl={user?.image ?? session.user.image ?? null}
+      sellableServers={sellableServers}
+      defaultSellServerId={user?.defaultSellServerId ?? null}
+    />
   );
 }
