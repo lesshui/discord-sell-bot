@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { sendOrderUpdate } from "@/lib/discord";
+import { canManageOrder } from "@/lib/order-auth";
 import { prisma } from "@/lib/prisma";
 
 const schema = z.object({
@@ -27,10 +28,17 @@ const schema = z.object({
 
 export async function POST(request: Request, { params }: { params: Promise<{ orderId: string }> }) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { orderId } = await params;
   const body = schema.parse(await request.json());
+
+  // Only an app admin or the owner of this order's server may update it.
+  const existing = await prisma.order.findUniqueOrThrow({ where: { id: orderId }, select: { serverId: true } });
+  if (!(await canManageOrder(session.user, existing))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const order = await prisma.order.update({
     where: { id: orderId },
     data: {

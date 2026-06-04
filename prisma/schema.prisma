@@ -45,6 +45,9 @@ model User {
   image         String?
   discordId     String?         @unique
   isAdmin       Boolean         @default(false)
+  // Seller's chosen destination server: new submissions route here so that
+  // server's owner/admin sees them on their buyer dashboard.
+  defaultSellServerId String?
   accounts      Account[]
   sessions      Session[]
   orders        Order[]
@@ -87,18 +90,31 @@ model AppConfig {
 
 // Category values: Single Card | Graded Card | Sealed Booster Pack | Sealed Booster Box | Elite Trainer Box | Collection / Tin | Other
 model Product {
-  id             String   @id @default(cuid())
-  sku            String   @unique
+  id             String              @id @default(cuid())
+  sku            String              @unique
   name           String
-  category       String   @default("Single Card")
+  category       String              @default("Single Card")
   setName        String?
   cardNumber     String?
   grade          String?
   baseOfferCents Int
-  active         Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  active         Boolean             @default(true)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
   orders         Order[]
+  marketPrice    ProductMarketPrice?
+}
+
+// Cached market price for a product, populated by the scraper.
+// One row per product; refreshes overwrite the row.
+// source values: "ebay" | "tcgplayer" | "blended" | "mock"
+model ProductMarketPrice {
+  productId   String   @id
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  priceCents  Int
+  sampleSize  Int      @default(0)
+  source      String
+  scrapedAt   DateTime @default(now())
 }
 
 model Order {

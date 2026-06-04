@@ -63,6 +63,31 @@ function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
+// Resolves the Discord guild a /sell was run in to a DiscordServer the order can
+// reference, so it lands on that server's buyer dashboard. Lazily creates the
+// row when the guild owner already has an app account. Returns undefined (leaves
+// the order unrouted) when there's no guild or the owner hasn't onboarded.
+async function resolveOrderServerId(
+  interaction: { guildId: string | null; guild: { name: string; ownerId: string; iconURL: () => string | null } | null },
+): Promise<string | undefined> {
+  const guildId = interaction.guildId;
+  if (!guildId) return undefined;
+
+  const existing = await prisma.discordServer.findUnique({ where: { id: guildId }, select: { id: true } });
+  if (existing) return guildId;
+
+  const guild = interaction.guild;
+  if (!guild) return undefined;
+
+  const ownerUser = await prisma.user.findFirst({ where: { discordId: guild.ownerId }, select: { id: true } });
+  if (!ownerUser) return undefined;
+
+  await prisma.discordServer.create({
+    data: { id: guildId, name: guild.name, iconUrl: guild.iconURL(), ownerId: ownerUser.id, active: true },
+  });
+  return guildId;
+}
+
 function modal(customId: string, title: string, fields: Array<{
   id: string; label: string; style: TextInputStyle; placeholder?: string; required?: boolean; value?: string;
 }>) {
@@ -370,6 +395,9 @@ async function main() {
       const config = await prisma.appConfig.upsert({ where: { id: "singleton" }, update: {}, create: { id: "singleton" } });
       const payoutCents = Math.max(0, totalCents - config.labelFeeCents * quantity);
 
+      // Auto-identify the server this sale originates from → routes to its buyer dashboard.
+      const serverId = await resolveOrderServerId(interaction);
+
       const order = await prisma.order.create({
         data: {
           sellerId:               user.id,
@@ -383,7 +411,7 @@ async function main() {
           shippingDeductionCents: config.labelFeeCents * quantity,
           payoutCents,
           status:                 "OFFERED",
-          serverId:               interaction.guildId ?? undefined,
+          serverId,
         },
       });
 

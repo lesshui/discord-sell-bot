@@ -30,7 +30,9 @@ export async function syncUserServers(appUserId: string): Promise<void> {
   for (const guild of ownedGuildsWithBot) {
     await prisma.discordServer.upsert({
       where: { id: guild.id },
-      update: { name: guild.name, iconUrl: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` : null },
+      // Keep the recorded owner in sync with the live Discord owner so order
+      // authorization (by ownerId) matches what the dashboard shows (by live role).
+      update: { name: guild.name, iconUrl: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` : null, ownerId: appUserId },
       create: {
         id: guild.id,
         name: guild.name,
@@ -82,6 +84,19 @@ function guildRole(guild: DiscordGuild): GuildRole {
   return "none";
 }
 
+// Servers a seller/buyer can route a submission INTO. Returns every active bot
+// server in the DB so the picker works without per-user Discord OAuth (membership
+// filtering can be layered on later). UI for picking one is wired separately.
+export async function getSellableServers(
+  _appUserId: string,
+): Promise<{ id: string; name: string; iconUrl: string | null }[]> {
+  return prisma.discordServer.findMany({
+    where: { active: true },
+    select: { id: true, name: true, iconUrl: true },
+    orderBy: { name: "asc" },
+  });
+}
+
 export async function getAccessibleBotServers(appUserId: string): Promise<UserGuild[]> {
   const token = await getDiscordAccessToken(appUserId);
   if (!token) return [];
@@ -97,7 +112,9 @@ export async function getAccessibleBotServers(appUserId: string): Promise<UserGu
   for (const guild of ownedWithBot) {
     await prisma.discordServer.upsert({
       where: { id: guild.id },
-      update: { name: guild.name, iconUrl: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` : null },
+      // Keep the recorded owner in sync with the live Discord owner so order
+      // authorization (by ownerId) matches what the dashboard shows (by live role).
+      update: { name: guild.name, iconUrl: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` : null, ownerId: appUserId },
       create: {
         id: guild.id,
         name: guild.name,

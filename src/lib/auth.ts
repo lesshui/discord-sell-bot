@@ -76,7 +76,12 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = String(token.appUserId);
         session.user.discordId = typeof token.discordId === "string" ? token.discordId : null;
-        session.user.isAdmin = Boolean(token.isAdmin);
+        // Re-derive admin status from the env allowlist on every request so changes to
+        // ADMIN_DISCORD_IDS take effect without requiring users to sign out and back in.
+        session.user.isAdmin =
+          typeof token.discordId === "string"
+            ? adminDiscordIds.has(token.discordId)
+            : Boolean(token.isAdmin);
       }
 
       return session;
