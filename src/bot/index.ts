@@ -21,8 +21,8 @@ const clientId  = process.env.DISCORD_CLIENT_ID;
 const guildId   = process.env.DISCORD_GUILD_ID;
 const baseUrl   = process.env.APP_BASE_URL ?? "http://localhost:3000";
 
-if (!token || !clientId || !guildId) {
-  throw new Error("DISCORD_BOT_TOKEN, DISCORD_CLIENT_ID, and DISCORD_GUILD_ID are required.");
+if (!token || !clientId) {
+  throw new Error("DISCORD_BOT_TOKEN and DISCORD_CLIENT_ID are required.");
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────────
@@ -164,7 +164,10 @@ const commands = [
 
 async function main() {
   const rest = new REST({ version: "10" }).setToken(token!);
-  await rest.put(Routes.applicationGuildCommands(clientId!, guildId!), { body: commands });
+  const route = guildId
+    ? Routes.applicationGuildCommands(clientId!, guildId)
+    : Routes.applicationCommands(clientId!);
+  await rest.put(route, { body: commands });
 
   const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
