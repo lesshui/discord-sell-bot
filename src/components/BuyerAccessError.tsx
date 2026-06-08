@@ -16,7 +16,10 @@ const COPY: Record<Reason, { title: string; body: string }> = {
 export function BuyerAccessError({ reason }: { reason: Reason }) {
   const { title, body } = COPY[reason];
   return (
-    <div className="min-h-screen bg-[#10131a]">
+    <div
+      className="min-h-screen bg-[#10131a]"
+      style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", marginTop: "-40px" }}
+    >
       <div className="mx-auto max-w-2xl px-4 py-16">
         <div className="mb-2 flex items-center gap-3">
           <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-white transition-colors">

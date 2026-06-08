@@ -104,7 +104,10 @@ export default async function BuyerDashboard({ params }: { params: Promise<{ ser
   }));
 
   return (
-    <div className="min-h-screen bg-[#fbfbfa] text-[#0f1419]">
+    <div
+      className="min-h-screen bg-[#fbfbfa] text-[#0f1419]"
+      style={{ width: "100vw", marginLeft: "calc(50% - 50vw)", marginTop: "-40px" }}
+    >
       <div className="mx-auto max-w-[960px] px-7 pt-8">
         {/* Header */}
         <div className="mb-1 flex items-center justify-between gap-4">
@@ -116,7 +119,8 @@ export default async function BuyerDashboard({ params }: { params: Promise<{ ser
           </div>
           <Link
             href="/dashboard"
-            className="whitespace-nowrap rounded-xl bg-[#0f1419] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#1f2733]"
+            className="whitespace-nowrap rounded-xl bg-[#0f1419] px-4 py-2 text-sm font-semibold transition-colors hover:bg-[#1f2733]"
+            style={{ color: "#ffffff" }}
           >
             Seller Dashboard
           </Link>
