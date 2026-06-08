@@ -112,9 +112,6 @@ export default async function BuyerDashboard({ params }: { params: Promise<{ ser
         {/* Header */}
         <div className="mb-1 flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-[14px]">
-            <Link href="/buyer" className="whitespace-nowrap text-sm text-[#8a93a1] transition-colors hover:text-[#0f1419]">
-              ← Servers
-            </Link>
             <BuyerServerSwitcher servers={switcherServers} selectedId={serverId} />
           </div>
           <Link
