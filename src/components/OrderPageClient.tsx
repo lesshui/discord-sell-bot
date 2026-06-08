@@ -547,16 +547,39 @@ export type MarketPriceProp = {
   scrapedAt: string;
 } | null;
 
+export type OpenTicketProp = {
+  id: string;
+  number: number;
+  reason: string;
+  channelId: string | null;
+} | null;
+
 const MARKET_PRICE_FRESH_MS = 24 * 60 * 60 * 1000;
+
+const TICKET_REASON_OPTIONS = [
+  { value: "CONDITION_MISMATCH",    label: "Condition mismatch" },
+  { value: "FAKE_COUNTERFEIT",      label: "Counterfeit / authenticity" },
+  { value: "MISSING_ITEM",          label: "Missing item" },
+  { value: "NEEDS_SELLER_CONTACT",  label: "Needs seller contact" },
+  { value: "OTHER",                 label: "Other" },
+] as const;
+
+function reasonLabel(reason: string): string {
+  return TICKET_REASON_OPTIONS.find((r) => r.value === reason)?.label ?? reason.replace(/_/g, " ");
+}
 
 export function OrderPageClient({
   order,
   config,
   marketPrice = null,
+  isAdmin = false,
+  openTicket: initialTicket = null,
 }: {
   order: OrderWithProduct;
   config: AppConfig;
   marketPrice?: MarketPriceProp;
+  isAdmin?: boolean;
+  openTicket?: OpenTicketProp;
 }) {
   const router = useRouter();
   const [payoutMethod, setPayoutMethod] = useState<PayoutMethod>("ZELLE");
@@ -569,6 +592,13 @@ export function OrderPageClient({
   const [declining, setDeclining] = useState(false);
   const [declined, setDeclined] = useState(order.status === "DRAFT");
   const [resubmitting, setResubmitting] = useState(false);
+
+  const [openTicket, setOpenTicket] = useState<OpenTicketProp>(initialTicket);
+  const [ticketMenuOpen, setTicketMenuOpen] = useState(false);
+  const [ticketReason, setTicketReason] = useState<typeof TICKET_REASON_OPTIONS[number]["value"]>("OTHER");
+  const [ticketNotes, setTicketNotes] = useState("");
+  const [ticketBusy, setTicketBusy] = useState(false);
+  const [ticketError, setTicketError] = useState<string>();
 
   const photos = JSON.parse(order.photoUrlsJson) as string[];
   const cardName = order.product?.name ?? order.customCardName ?? "Custom card";
@@ -598,6 +628,34 @@ export function OrderPageClient({
     setDeclining(false);
     if (!res.ok) { setError("Could not decline the offer. Please try again."); return; }
     setDeclined(true);
+  }
+
+  async function handleOpenTicket() {
+    setTicketBusy(true);
+    setTicketError(undefined);
+    const res = await fetch(`/api/orders/${order.id}/tickets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: ticketReason, notes: ticketNotes.trim() || undefined }),
+    });
+    setTicketBusy(false);
+    if (!res.ok) { setTicketError("Could not open ticket. Try again or use Discord directly."); return; }
+    const { ticket } = await res.json();
+    setOpenTicket({ id: ticket.id, number: ticket.number, reason: ticket.reason, channelId: ticket.channelId ?? null });
+    setTicketMenuOpen(false);
+    setTicketNotes("");
+    router.refresh();
+  }
+
+  async function handleCloseTicket() {
+    if (!openTicket) return;
+    setTicketBusy(true);
+    setTicketError(undefined);
+    const res = await fetch(`/api/tickets/${openTicket.id}/close`, { method: "POST" });
+    setTicketBusy(false);
+    if (!res.ok) { setTicketError("Could not close ticket."); return; }
+    setOpenTicket(null);
+    router.refresh();
   }
 
   async function handleResubmit() {
@@ -969,6 +1027,130 @@ export function OrderPageClient({
               )}
             </section>
           )}
+
+          {/* ── Support ticket ── */}
+          <section
+            style={{
+              background: "rgba(255,255,255,0.92)",
+              border: "1px solid rgba(15,20,25,0.08)",
+              borderRadius: 16,
+              padding: "20px 24px",
+              backdropFilter: "blur(8px)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 14,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Support</h2>
+                <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
+                  {openTicket
+                    ? <>Ticket <b>#{String(openTicket.number).padStart(4, "0")}</b> is open in Discord — <b>{reasonLabel(openTicket.reason)}</b>. Chat with us there to resolve.</>
+                    : "Something off with this order? Open a ticket and we'll chat in a private Discord channel."}
+                </p>
+              </div>
+              {openTicket ? (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {openTicket.channelId && (
+                    <span
+                      style={{
+                        padding: "8px 14px",
+                        borderRadius: 10,
+                        background: "rgba(84,87,217,0.06)",
+                        border: "1px solid rgba(84,87,217,0.20)",
+                        color: "#5457d9",
+                        fontFamily: "var(--font-mono,'JetBrains Mono',monospace)",
+                        fontSize: 12,
+                        fontWeight: 600,
+                      }}
+                    >
+                      #ticket-{String(openTicket.number).padStart(4, "0")}
+                    </span>
+                  )}
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={handleCloseTicket}
+                      disabled={ticketBusy}
+                      className="ord-cta-secondary"
+                      style={{ padding: "8px 14px", fontSize: 13 }}
+                    >
+                      {ticketBusy ? "Closing…" : "Close ticket"}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setTicketMenuOpen((v) => !v)}
+                  className="ord-cta-secondary"
+                  style={{ padding: "8px 14px", fontSize: 13 }}
+                >
+                  {ticketMenuOpen ? "Cancel" : "Open ticket"}
+                </button>
+              )}
+            </div>
+
+            {!openTicket && ticketMenuOpen && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 4 }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12, fontWeight: 600, color: "#0f1419" }}>
+                  Issue
+                  <select
+                    value={ticketReason}
+                    onChange={(e) => setTicketReason(e.target.value as typeof ticketReason)}
+                    style={{
+                      padding: "10px 12px",
+                      background: "white",
+                      border: "1.5px solid rgba(15,20,25,0.08)",
+                      borderRadius: 10,
+                      fontSize: 14,
+                      color: "#0f1419",
+                      outline: "none",
+                    }}
+                  >
+                    {TICKET_REASON_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12, fontWeight: 600, color: "#0f1419" }}>
+                  Notes <span style={{ fontWeight: 400, color: "#8a93a1" }}>(optional)</span>
+                  <textarea
+                    value={ticketNotes}
+                    onChange={(e) => setTicketNotes(e.target.value)}
+                    rows={3}
+                    placeholder="Briefly describe what's wrong — admins will see this in the ticket channel."
+                    style={{
+                      padding: "10px 12px",
+                      background: "white",
+                      border: "1.5px solid rgba(15,20,25,0.08)",
+                      borderRadius: 10,
+                      fontSize: 14,
+                      color: "#0f1419",
+                      outline: "none",
+                      fontFamily: "inherit",
+                      resize: "vertical",
+                    }}
+                  />
+                </label>
+                {ticketError && (
+                  <p style={{ margin: 0, fontSize: 13, color: "#c43e30" }}>{ticketError}</p>
+                )}
+                <div>
+                  <button
+                    type="button"
+                    onClick={handleOpenTicket}
+                    disabled={ticketBusy}
+                    className="ord-cta-primary is-active"
+                    style={{ padding: "10px 18px", fontSize: 14, flex: "0 0 auto" }}
+                  >
+                    {ticketBusy ? "Opening…" : "Open ticket"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
 
           {/* ── Footer ── */}
           <footer className="ord-foot">

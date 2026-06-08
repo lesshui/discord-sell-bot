@@ -17,21 +17,37 @@ export default async function OrderPage({ params }: { params: Promise<{ orderId:
   if (!order) notFound();
   if (order.sellerId !== session.user.id && !session.user.isAdmin) redirect("/");
 
-  const marketPrice =
+  const [marketPrice, openTicket] = await Promise.all([
     config.externalApiPricing && order.productId
-      ? await prisma.productMarketPrice.findUnique({ where: { productId: order.productId } })
-      : null;
+      ? prisma.productMarketPrice.findUnique({ where: { productId: order.productId } })
+      : Promise.resolve(null),
+    prisma.ticket.findFirst({
+      where: { orderId: order.id, status: "OPEN" },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
 
   return (
     <OrderPageClient
       order={order}
       config={config}
+      isAdmin={Boolean(session.user.isAdmin)}
       marketPrice={
         marketPrice
           ? {
               priceCents: marketPrice.priceCents,
               source: marketPrice.source,
               scrapedAt: marketPrice.scrapedAt.toISOString(),
+            }
+          : null
+      }
+      openTicket={
+        openTicket
+          ? {
+              id: openTicket.id,
+              number: openTicket.number,
+              reason: openTicket.reason,
+              channelId: openTicket.channelId,
             }
           : null
       }

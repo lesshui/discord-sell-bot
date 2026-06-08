@@ -14,6 +14,7 @@ import {
   TextInputStyle,
 } from "discord.js";
 import { prisma } from "@/lib/prisma";
+import { closeTicket, openTicket, TICKET_REASONS, type TicketReason } from "@/lib/discord";
 import { calculateOfferCents } from "@/lib/pricing";
 
 const token     = process.env.DISCORD_BOT_TOKEN;
@@ -136,6 +137,39 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
 
   new SlashCommandBuilder()
+    .setName("ticket")
+    .setDescription("Open or close a support ticket for an order.")
+    .addSubcommand((sub) =>
+      sub
+        .setName("open")
+        .setDescription("Open a support ticket for an order.")
+        .addStringOption((opt) =>
+          opt.setName("order").setDescription("Order ID").setRequired(true)
+        )
+        .addStringOption((opt) =>
+          opt
+            .setName("reason")
+            .setDescription("Issue category")
+            .setRequired(false)
+            .addChoices(
+              { name: "Condition mismatch",         value: "CONDITION_MISMATCH" },
+              { name: "Counterfeit / authenticity", value: "FAKE_COUNTERFEIT" },
+              { name: "Missing item",               value: "MISSING_ITEM" },
+              { name: "Needs seller contact",       value: "NEEDS_SELLER_CONTACT" },
+              { name: "Other",                      value: "OTHER" }
+            )
+        )
+        .addStringOption((opt) =>
+          opt.setName("notes").setDescription("Short description (optional)").setRequired(false)
+        )
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName("close")
+        .setDescription("Close the ticket in this channel (admin / server owner only).")
+    ),
+
+  new SlashCommandBuilder()
     .setName("update")
     .setDescription("Update or remove a catalog product (requires Manage Server).")
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
@@ -236,6 +270,80 @@ async function main() {
       const content = await buildCatalogReply();
       await interaction.editReply(content);
       return;
+    }
+
+    // ── /ticket open + close ─────────────────────────────────────────────────
+    if (interaction.isChatInputCommand() && interaction.commandName === "ticket") {
+      const sub = interaction.options.getSubcommand();
+      await interaction.deferReply({ ephemeral: true });
+
+      const user = await prisma.user.findFirst({ where: { discordId: interaction.user.id } });
+      if (!user) {
+        await interaction.editReply(`Sign in first at ${baseUrl} to link your Discord account.`);
+        return;
+      }
+
+      if (sub === "open") {
+        const orderId = interaction.options.getString("order", true);
+        const reason  = (interaction.options.getString("reason") ?? "OTHER") as TicketReason;
+        const notes   = interaction.options.getString("notes") ?? undefined;
+
+        if (!TICKET_REASONS.includes(reason)) {
+          await interaction.editReply("Invalid reason.");
+          return;
+        }
+
+        const order = await prisma.order.findUnique({
+          where: { id: orderId },
+          include: { server: { select: { ownerId: true } } },
+        });
+        if (!order) {
+          await interaction.editReply(`Order \`${orderId}\` not found.`);
+          return;
+        }
+
+        const isOwner = order.server?.ownerId === user.id;
+        if (order.sellerId !== user.id && !isOwner && !user.isAdmin) {
+          await interaction.editReply("You don't have permission to open a ticket for this order.");
+          return;
+        }
+
+        const ticket = await openTicket({ orderId, reason, notes, openedById: user.id });
+        const channelMention = ticket.channelId ? `<#${ticket.channelId}>` : "(no channel — bot may lack guild access)";
+        await interaction.editReply(
+          `✅ Ticket **#${String(ticket.number).padStart(4, "0")}** opened for order \`${orderId}\` → ${channelMention}`
+        );
+        return;
+      }
+
+      if (sub === "close") {
+        const channelId = interaction.channelId;
+        if (!channelId) {
+          await interaction.editReply("Run this inside a ticket channel.");
+          return;
+        }
+
+        const ticket = await prisma.ticket.findFirst({
+          where: { channelId },
+          include: { order: { include: { server: { select: { ownerId: true } } } } },
+        });
+        if (!ticket) {
+          await interaction.editReply("This channel isn't a ticket channel.");
+          return;
+        }
+
+        const isOwner = ticket.order.server?.ownerId === user.id;
+        if (!isOwner && !user.isAdmin) {
+          await interaction.editReply("Only an admin or the server owner can close tickets.");
+          return;
+        }
+
+        await closeTicket({ ticketId: ticket.id, closedById: user.id });
+        await interaction.editReply(
+          `🔒 Ticket **#${String(ticket.number).padStart(4, "0")}** closed.`
+        );
+        return;
+      }
     }
 
     // ── /add ─────────────────────────────────────────────────────────────────

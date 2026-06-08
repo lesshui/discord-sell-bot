@@ -8,6 +8,7 @@ import { formatMoney } from "@/lib/money";
 import { AdminOrderStatusForm } from "@/components/AdminOrderStatusForm";
 import { BuyerOfferForm } from "@/components/BuyerOfferForm";
 import { BuyerServerSwitcher } from "@/components/BuyerServerSwitcher";
+import { BuyerAccessError } from "@/components/BuyerAccessError";
 
 // Buyer-facing labels. OFFERED reads as "Offer sent" here (the seller's view
 // shows "Offer received" for the same status).
@@ -56,7 +57,11 @@ export default async function BuyerDashboard({ params }: { params: Promise<{ ser
   const session = await getServerSession(authOptions);
   if (!session) redirect("/api/auth/signin");
 
-  const servers = await getAccessibleBotServers(session.user.id);
+  const result = await getAccessibleBotServers(session.user.id);
+  if (!result.ok) {
+    return <BuyerAccessError reason={result.reason} />;
+  }
+  const servers = result.servers;
   const server = servers.find((s) => s.id === serverId);
 
   if (!server) notFound();

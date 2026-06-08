@@ -17,6 +17,10 @@ export async function GET() {
     prisma.discordServer.findMany({ where: { active: true }, select: { id: true, name: true } }),
   ]);
 
+  if (!guilds) {
+    return NextResponse.json({ step: "fetch_user_guilds", error: "Discord rejected the access token" }, { status: 502 });
+  }
+
   const activeIds = new Set(activeServers.map((s) => s.id));
   const matched = guilds.filter((g) => activeIds.has(g.id));
 

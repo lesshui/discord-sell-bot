@@ -431,6 +431,7 @@ interface Order {
   sellerName: string;
   serverId: string | null;
   serverName: string | null;
+  openTicketNumber: number | null;
 }
 
 interface Props {
@@ -616,11 +617,27 @@ function AdminPriceCard({ order }: { order: Order }) {
 }
 
 function OrderCard({ order, marketPricingEnabled, isAdmin }: { order: Order; marketPricingEnabled: boolean; isAdmin: boolean }) {
+  const router = useRouter();
   const meta = STATUS_META[order.status] ?? { label: order.status.replace(/_/g, " "), tone: "neutral" };
   const isDraft = order.status === "DRAFT";
   const days = isDraft ? daysLeft(order.declinedAt) : null;
   const hue = order.hue;
   const showMarket = marketPricingEnabled && order.marketPriceCents != null;
+  const [ticketBusy, setTicketBusy] = useState(false);
+
+  async function quickOpenTicket(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (ticketBusy) return;
+    setTicketBusy(true);
+    await fetch(`/api/orders/${order.id}/tickets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: "OTHER" }),
+    });
+    setTicketBusy(false);
+    router.refresh();
+  }
 
   return (
     <Link href={`/orders/${order.id}`} className={`dsh-card ${isDraft ? "is-draft" : ""}`}>
@@ -669,6 +686,48 @@ function OrderCard({ order, marketPricingEnabled, isAdmin }: { order: Order; mar
               {days === 0 ? "expires today" : days === 1 ? "expires tomorrow" : `${days} days left`}
             </span>
           ) : null}
+          {order.openTicketNumber !== null ? (
+            <span
+              className="dsh-card-ticket"
+              title={`Support ticket #${String(order.openTicketNumber).padStart(4, "0")} is open`}
+              style={{
+                marginLeft: "auto",
+                padding: "2px 8px",
+                borderRadius: 999,
+                background: "rgba(84,87,217,0.08)",
+                border: "1px solid rgba(84,87,217,0.22)",
+                color: "#5457d9",
+                fontFamily: "var(--font-mono,'JetBrains Mono',monospace)",
+                fontSize: 10.5,
+                fontWeight: 600,
+                letterSpacing: 0.3,
+              }}
+            >
+              🎫 #{String(order.openTicketNumber).padStart(4, "0")}
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={quickOpenTicket}
+              disabled={ticketBusy}
+              title="Open a support ticket for this order"
+              style={{
+                marginLeft: "auto",
+                padding: "2px 8px",
+                borderRadius: 999,
+                background: "transparent",
+                border: "1px dashed rgba(15,20,25,0.16)",
+                color: "#6b7280",
+                fontFamily: "var(--font-mono,'JetBrains Mono',monospace)",
+                fontSize: 10.5,
+                fontWeight: 500,
+                letterSpacing: 0.3,
+                cursor: ticketBusy ? "wait" : "pointer",
+              }}
+            >
+              {ticketBusy ? "opening…" : "+ ticket"}
+            </button>
+          )}
         </div>
       </div>
     </Link>

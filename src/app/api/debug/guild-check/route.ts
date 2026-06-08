@@ -11,6 +11,9 @@ export async function GET() {
   if (!token) return NextResponse.json({ error: "No Discord access token stored" }, { status: 400 });
 
   const guilds = await fetchUserGuilds(token);
+  if (!guilds) {
+    return NextResponse.json({ error: "Discord rejected the access token (likely expired)" }, { status: 502 });
+  }
 
   const MANAGE_GUILD = BigInt(0x20);
   const summary = guilds.map((g) => ({

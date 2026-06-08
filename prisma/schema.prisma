@@ -145,6 +145,32 @@ model Order {
   manualLabelUrl         String?
   trackingNumber         String?
   inspectionNotes        String?
+  tickets                Ticket[]
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
+}
+
+// Support ticket attached to an order. Auto-opened when an order is flagged with
+// an "issue" status (CONDITION_MISMATCH / FAKE_COUNTERFEIT / MISSING_ITEM /
+// NEEDS_SELLER_CONTACT) and also openable manually by seller/admin. Creates a
+// private Discord channel "ticket-####" in the order's routed server.
+//
+// reason values: CONDITION_MISMATCH | FAKE_COUNTERFEIT | MISSING_ITEM | NEEDS_SELLER_CONTACT | OTHER
+// status values: OPEN | CLOSED
+model Ticket {
+  id          String   @id @default(cuid())
+  number      Int      @unique @default(autoincrement())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  reason      String
+  notes       String?
+  status      String   @default("OPEN")
+  channelId   String?
+  openedById  String?
+  closedAt    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([status])
 }

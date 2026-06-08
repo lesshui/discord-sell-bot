@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { getAccessibleBotServers } from "@/lib/discord-guilds";
+import { BuyerAccessError } from "@/components/BuyerAccessError";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,13 @@ export default async function BuyerEntryPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/api/auth/signin");
 
-  const servers = await getAccessibleBotServers(session.user.id);
+  const result = await getAccessibleBotServers(session.user.id);
+
+  if (!result.ok) {
+    return <BuyerAccessError reason={result.reason} />;
+  }
+
+  const servers = result.servers;
 
   if (servers.length === 1 && servers[0].role === "owner") {
     redirect(`/buyer/${servers[0].id}`);

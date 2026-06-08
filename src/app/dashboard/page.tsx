@@ -41,6 +41,14 @@ export default async function SellerDashboard() {
     : [];
   const marketByProductId = new Map(marketPrices.map((m) => [m.productId, m]));
 
+  const openTickets = orders.length > 0
+    ? await prisma.ticket.findMany({
+        where: { orderId: { in: orders.map((o) => o.id) }, status: "OPEN" },
+        select: { orderId: true, number: true },
+      })
+    : [];
+  const openTicketByOrderId = new Map(openTickets.map((t) => [t.orderId, t.number]));
+
   // Servers a seller can route a submission into (for the draft server picker).
   const sellableServers = await getSellableServers(session.user.id);
 
@@ -73,6 +81,7 @@ export default async function SellerDashboard() {
       sellerName: o.seller?.name ?? o.seller?.discordId ?? "seller",
       serverId: o.serverId,
       serverName: o.server?.name ?? null,
+      openTicketNumber: openTicketByOrderId.get(o.id) ?? null,
     };
   });
 

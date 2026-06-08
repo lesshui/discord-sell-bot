@@ -70,6 +70,7 @@ export async function POST(request: Request) {
 
   const channelId = await createOrderChannel({
     orderId: order.id,
+    guildId: seller.defaultSellServerId,
     sellerDiscordId: seller.discordId,
     sellerName: seller.name,
   });
