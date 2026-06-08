@@ -130,12 +130,23 @@ export async function getDiscordAccessToken(appUserId: string): Promise<string |
 }
 
 export async function fetchUserGuilds(accessToken: string): Promise<DiscordGuild[] | null> {
-  const res = await fetch("https://discord.com/api/users/@me/guilds", {
-    headers: { Authorization: `Bearer ${accessToken}` },
-    next: { revalidate: 0 },
-  });
-  if (!res.ok) return null;
-  return res.json() as Promise<DiscordGuild[]>;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await fetch("https://discord.com/api/users/@me/guilds", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      next: { revalidate: 0 },
+    });
+    if (res.ok) return res.json() as Promise<DiscordGuild[]>;
+    // 429s after a debug poke or quick back-and-forth are common; respect
+    // Retry-After (capped) and try once more before surfacing an error.
+    if (res.status === 429 && attempt === 0) {
+      const retryAfter = Number(res.headers.get("retry-after") ?? "1");
+      const waitMs = Math.min(Math.max(retryAfter, 0.25), 2) * 1000;
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+      continue;
+    }
+    return null;
+  }
+  return null;
 }
 
 function guildRole(guild: DiscordGuild): GuildRole {
